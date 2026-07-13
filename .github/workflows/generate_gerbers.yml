@@ -10,7 +10,7 @@ jobs:
 
       - name: Run KiCad DRC and Export
         run: |
-          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace kicad/kicad:8.0 sh -c "
+          docker run --rm --user root -v ${{ github.workspace }}:/workspace -w /workspace kicad/kicad:8.0 sh -c "
             kicad-cli pcb drc --severity-error pcb_inlet.kicad_pcb -o drc_report.txt || true
             mkdir -p gerber_output
             kicad-cli pcb export gerbers pcb_inlet.kicad_pcb -o gerber_output/
