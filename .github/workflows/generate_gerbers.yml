@@ -1,0 +1,29 @@
+name: Generate PCB Fabrication Files
+on: [push]
+
+jobs:
+  kicad-export:
+    runs-on: ubuntu-latest
+    container:
+      image: kicad/kicad:8.0
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Design Rule Check (DRC)
+        run: |
+          kicad-cli pcb drc --severity-error pcb_inlet.kicad_pcb -o drc_report.txt || true
+
+      - name: Export Gerber Files
+        run: |
+          mkdir -p gerber_output
+          kicad-cli pcb export gerbers pcb_inlet.kicad_pcb -o gerber_output/
+          kicad-cli pcb export drill pcb_inlet.kicad_pcb -o gerber_output/
+
+      - name: Upload Gerbers as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gerber-files-package
+          path: |
+            gerber_output/
+            drc_report.txt
