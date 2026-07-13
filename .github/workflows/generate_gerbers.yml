@@ -1,6 +1,9 @@
 name: Generate PCB Fabrication Files
 on: [push]
 
+permissions:
+  contents: write
+
 jobs:
   kicad-export:
     runs-on: ubuntu-latest
@@ -17,10 +20,10 @@ jobs:
             kicad-cli pcb export drill pcb_inlet.kicad_pcb -o gerber_output/
           "
 
-      - name: Upload Gerbers as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: gerber-files-package
-          path: |
-            gerber_output/
-            drc_report.txt
+      - name: Commit and Push Gerbers to Repo
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add gerber_output/ drc_report.txt
+          git commit -m "Automatyczny zapis Gerberów [skip ci]" || echo "Brak zmian do zapisu"
+          git push
