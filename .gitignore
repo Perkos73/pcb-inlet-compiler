@@ -1,0 +1,5 @@
+reports/*
+production/*
+!reports/.gitkeep
+!production/.gitkeep
+*.zip
