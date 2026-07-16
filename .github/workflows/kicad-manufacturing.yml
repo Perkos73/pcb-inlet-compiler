@@ -122,17 +122,6 @@ jobs:
               | xargs -0 sha256sum > SHA256SUMS.txt
           )
 
-      - name: Commit production package
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "production/$REVISION"
-          git diff --cached --quiet && exit 0
-          git commit -m "Generate $REVISION manufacturing package [skip ci]"
-          git push
-
       - name: Upload production package
         uses: actions/upload-artifact@v4
         with:
