@@ -1,0 +1,84 @@
+name: KiCad Validate
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "production/**"
+      - "reports/**"
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: kicad-validate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  KICAD_IMAGE: ghcr.io/kicad/kicad:10.0.4
+  KICAD_EXPECTED: "10.0."
+  PCB: pcb-inlet.kicad_pcb
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -path ./.git -prune -o -type f -printf '%10s  %p\n' | sort -k2
+
+      - name: Resolve and verify KiCad image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "$KICAD_IMAGE"
+          version="$(docker run --rm "$KICAD_IMAGE" kicad-cli version 2>&1 | tr -d '\r')"
+          echo "kicad-cli version: $version"
+          case "$version" in
+            "$KICAD_EXPECTED"*) ;;
+            *) echo "::error::Expected KiCad ${KICAD_EXPECTED}x, got: $version"; exit 96 ;;
+          esac
+
+      - name: Run full and gating DRC
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/ci"
+          mkdir -p "$RUNNER_TEMP/ci/src" "$RUNNER_TEMP/ci/out" "$RUNNER_TEMP/ci/home/.config" "$RUNNER_TEMP/ci/home/.cache/fontconfig"
+          cp -a "$GITHUB_WORKSPACE/." "$RUNNER_TEMP/ci/src/"
+          rm -rf "$RUNNER_TEMP/ci/src/.git"
+
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -e HOME=/home/kicad \
+            -e XDG_CONFIG_HOME=/home/kicad/.config \
+            -e XDG_CACHE_HOME=/home/kicad/.cache \
+            -v "$RUNNER_TEMP/ci/src:/workspace" \
+            -v "$RUNNER_TEMP/ci/out:/out" \
+            -v "$RUNNER_TEMP/ci/home:/home/kicad" \
+            -w /workspace \
+            "$KICAD_IMAGE" sh -lc '
+              set -e
+              kicad-cli pcb drc --format report --units mm --severity-all --output /out/drc-full.rpt "$PCB"
+              kicad-cli pcb drc --format report --units mm --severity-error --exit-code-violations --output /out/drc-gating.rpt "$PCB"
+              kicad-cli pcb render --output /out/pcb-inlet-top.png --side top --quality basic --width 1600 --height 1000 "$PCB"
+              kicad-cli pcb render --output /out/pcb-inlet-bottom.png --side bottom --quality basic --width 1600 --height 1000 "$PCB"
+            '
+
+          cat "$RUNNER_TEMP/ci/out/drc-gating.rpt"
+
+      - name: Upload validation reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: pcb-inlet-validation
+          path: ${{ runner.temp }}/ci/out/
+          if-no-files-found: error
