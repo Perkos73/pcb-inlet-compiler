@@ -71,9 +71,7 @@ jobs:
               set -e
               kicad-cli pcb drc --format report --units mm --severity-all --output /out/drc-full.rpt "$PCB"
               kicad-cli pcb drc --format report --units mm --severity-error --exit-code-violations --output /out/drc-gating.rpt "$PCB"
-              kicad-cli pcb render --output /out/pcb-inlet-top.png --side top --quality basic --width 1600 --height 1000 "$PCB"
-              kicad-cli pcb render --output /out/pcb-inlet-bottom.png --side bottom --quality basic --width 1600 --height 1000 "$PCB"
-            '
+                          '
 
           cat "$RUNNER_TEMP/ci/out/drc-gating.rpt"
 
