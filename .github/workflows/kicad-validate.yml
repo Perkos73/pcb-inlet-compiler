@@ -17,8 +17,8 @@ permissions:
   contents: read
 
 env:
-  KICAD_IMAGE: ghcr.io/kicad/kicad:10.0.4
-  KICAD_EXPECTED: "10.0."
+  KICAD_IMAGE: ghcr.io/kicad/kicad:8.0.9
+  KICAD_EXPECTED: "8.0."
   PCB: pcb-inlet.kicad_pcb
 
 jobs:
