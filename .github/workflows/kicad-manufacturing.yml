@@ -1,0 +1,114 @@
+name: KiCad Manufacturing
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "pcb-inlet.kicad_pcb"
+      - ".github/workflows/kicad-manufacturing.yml"
+
+concurrency:
+  group: kicad-manufacturing-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  KICAD_IMAGE: ghcr.io/kicad/kicad:8.0.9
+  PCB: pcb-inlet.kicad_pcb
+  PROJECT: pcb-inlet
+  REVISION: PCB1-PCB-01R1
+
+jobs:
+  manufacture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Generate production package
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="production/$REVISION"
+          rm -rf "$OUT"
+          mkdir -p "$OUT"/{gerbers,drill,netlist,reports,previews}
+
+          docker pull "$KICAD_IMAGE"
+
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp/kicad-home \
+            -e XDG_CONFIG_HOME=/tmp/kicad-home/.config \
+            -e XDG_CACHE_HOME=/tmp/kicad-home/.cache \
+            -e PCB="$PCB" \
+            -e PROJECT="$PROJECT" \
+            -e OUT="/workspace/$OUT" \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            "$KICAD_IMAGE" sh -lc '
+              set -e
+              mkdir -p "$XDG_CONFIG_HOME/kicad/10.0" "$XDG_CACHE_HOME/fontconfig"
+
+              kicad-cli pcb drc \
+                --format report \
+                --units mm \
+                --severity-all \
+                --output "$OUT/reports/drc-full.rpt" \
+                "$PCB"
+
+              kicad-cli pcb drc \
+                --format report \
+                --units mm \
+                --severity-error \
+                --exit-code-violations \
+                --output "$OUT/reports/drc-gating.rpt" \
+                "$PCB"
+
+              kicad-cli pcb export gerbers \
+                --layers F.Cu,B.Cu,F.Mask,B.Mask,F.Silkscreen,B.Silkscreen,Edge.Cuts \
+                --output "$OUT/gerbers/" \
+                "$PCB"
+
+              kicad-cli pcb export drill \
+                --format excellon \
+                --drill-origin absolute \
+                --excellon-separate-th \
+                --generate-map \
+                --map-format gerberx2 \
+                --output "$OUT/drill/" \
+                "$PCB"
+
+              kicad-cli pcb export ipcd356 \
+                --output "$OUT/netlist/$PROJECT.d356" \
+                "$PCB"
+                
+
+          version="$(docker run --rm "$KICAD_IMAGE" kicad-cli version 2>&1 | tr -d '\r')"
+
+          {
+            echo "Project: $PROJECT"
+            echo "Revision: $REVISION"
+            echo "Source: $PCB"
+            echo "KiCad: $version"
+            echo "Generated UTC: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "Commit: $GITHUB_SHA"
+          } > "$OUT/MANIFEST.txt"
+
+          (
+            cd "$OUT"
+            find . -type f ! -name SHA256SUMS.txt -print0 \
+              | sort -z \
+              | xargs -0 sha256sum > SHA256SUMS.txt
+          )
+
+      - name: Upload production package
+        uses: actions/upload-artifact@v4
+        with:
+          name: pcb-inlet-${{ env.REVISION }}
+          path: production/${{ env.REVISION }}/
+          if-no-files-found: error
