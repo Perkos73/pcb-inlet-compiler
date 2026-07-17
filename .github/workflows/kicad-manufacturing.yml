@@ -3,20 +3,19 @@ name: KiCad Manufacturing
 on:
   workflow_dispatch:
   push:
-    branches: [main]
-    paths:
-      - "pcb-inlet.kicad_pcb"
-      - ".github/workflows/kicad-manufacturing.yml"
+    tags:
+      - "PCB1-PCB-*"
 
 concurrency:
   group: kicad-manufacturing-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   KICAD_IMAGE: ghcr.io/kicad/kicad:8.0.9
+  KICAD_EXPECTED: "8.0."
   PCB: pcb-inlet.kicad_pcb
   PROJECT: pcb-inlet
   REVISION: PCB1-PCB-01R1
@@ -30,63 +29,45 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Verify KiCad image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "$KICAD_IMAGE"
+          version="$(docker run --rm "$KICAD_IMAGE" kicad-cli version 2>&1 | tr -d '\r')"
+          echo "kicad-cli version: $version"
+          case "$version" in
+            "$KICAD_EXPECTED"*) ;;
+            *)
+              echo "::error::Expected KiCad ${KICAD_EXPECTED}x, got: $version"
+              exit 96
+              ;;
+          esac
+
       - name: Generate production package
         shell: bash
         run: |
           set -euo pipefail
+
           OUT="production/$REVISION"
-          rm -rf "$OUT"
-          mkdir -p "$OUT"/{gerbers,drill,netlist,reports,previews}
+          HOME_DIR="$RUNNER_TEMP/kicad-home"
 
-          docker pull "$KICAD_IMAGE"
+          rm -rf "$OUT" "$HOME_DIR"
+          mkdir -p             "$OUT/gerbers"             "$OUT/drill"             "$OUT/netlist"             "$OUT/reports"             "$HOME_DIR/.config"             "$HOME_DIR/.cache/fontconfig"
 
-          docker run --rm \
-            --user "$(id -u):$(id -g)" \
-            -e HOME=/tmp/kicad-home \
-            -e XDG_CONFIG_HOME=/tmp/kicad-home/.config \
-            -e XDG_CACHE_HOME=/tmp/kicad-home/.cache \
-            -e PCB="$PCB" \
-            -e PROJECT="$PROJECT" \
-            -e OUT="/workspace/$OUT" \
-            -v "$GITHUB_WORKSPACE:/workspace" \
-            -w /workspace \
-            "$KICAD_IMAGE" sh -lc '
-              set -e
-              mkdir -p "$XDG_CONFIG_HOME/kicad/10.0" "$XDG_CACHE_HOME/fontconfig"
+          kicad() {
+            docker run --rm               --user "$(id -u):$(id -g)"               -e HOME=/home/kicad               -e XDG_CONFIG_HOME=/home/kicad/.config               -e XDG_CACHE_HOME=/home/kicad/.cache               -v "$GITHUB_WORKSPACE:/workspace"               -v "$HOME_DIR:/home/kicad"               -w /workspace               "$KICAD_IMAGE"               kicad-cli "$@"
+          }
 
-              kicad-cli pcb drc \
-                --format report \
-                --units mm \
-                --severity-all \
-                --output "$OUT/reports/drc-full.rpt" \
-                "$PCB"
+          kicad pcb drc             --format report             --units mm             --severity-all             --output "$OUT/reports/drc-full.rpt"             "$PCB"
 
-              kicad-cli pcb drc \
-                --format report \
-                --units mm \
-                --severity-error \
-                --exit-code-violations \
-                --output "$OUT/reports/drc-gating.rpt" \
-                "$PCB"
+          kicad pcb drc             --format report             --units mm             --severity-error             --exit-code-violations             --output "$OUT/reports/drc-gating.rpt"             "$PCB"
 
-              kicad-cli pcb export gerbers \
-                --layers F.Cu,B.Cu,F.Mask,B.Mask,F.Silkscreen,B.Silkscreen,Edge.Cuts \
-                --output "$OUT/gerbers/" \
-                "$PCB"
+          kicad pcb export gerbers             --layers F.Cu,B.Cu,F.Mask,B.Mask,F.Silkscreen,B.Silkscreen,Edge.Cuts             --output "$OUT/gerbers/"             "$PCB"
 
-              kicad-cli pcb export drill \
-                --format excellon \
-                --drill-origin absolute \
-                --excellon-separate-th \
-                --generate-map \
-                --map-format gerberx2 \
-                --output "$OUT/drill/" \
-                "$PCB"
+          kicad pcb export drill             --format excellon             --drill-origin absolute             --excellon-separate-th             --generate-map             --map-format gerberx2             --output "$OUT/drill/"             "$PCB"
 
-              kicad-cli pcb export ipcd356 \
-                --output "$OUT/netlist/$PROJECT.d356" \
-                "$PCB"
-                
+          kicad pcb export ipc2581             --units mm             --output "$OUT/netlist/$PROJECT-ipc2581.xml"             "$PCB"
 
           version="$(docker run --rm "$KICAD_IMAGE" kicad-cli version 2>&1 | tr -d '\r')"
 
@@ -101,9 +82,7 @@ jobs:
 
           (
             cd "$OUT"
-            find . -type f ! -name SHA256SUMS.txt -print0 \
-              | sort -z \
-              | xargs -0 sha256sum > SHA256SUMS.txt
+            find . -type f ! -name SHA256SUMS.txt -print0               | sort -z               | xargs -0 sha256sum > SHA256SUMS.txt
           )
 
       - name: Upload production package
