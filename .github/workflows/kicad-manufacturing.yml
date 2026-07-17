@@ -16,7 +16,7 @@ permissions:
   contents: write
 
 env:
-  KICAD_IMAGE: ghcr.io/kicad/kicad:10.0.4
+  KICAD_IMAGE: ghcr.io/kicad/kicad:8.0.9
   PCB: pcb-inlet.kicad_pcb
   PROJECT: pcb-inlet
   REVISION: PCB1-PCB-01R1
@@ -86,23 +86,7 @@ jobs:
               kicad-cli pcb export ipcd356 \
                 --output "$OUT/netlist/$PROJECT.d356" \
                 "$PCB"
-
-              kicad-cli pcb render \
-                --output "$OUT/previews/$PROJECT-top.png" \
-                --side top \
-                --quality basic \
-                --width 1800 \
-                --height 1200 \
-                "$PCB"
-
-              kicad-cli pcb render \
-                --output "$OUT/previews/$PROJECT-bottom.png" \
-                --side bottom \
-                --quality basic \
-                --width 1800 \
-                --height 1200 \
-                "$PCB"
-            '
+                
 
           version="$(docker run --rm "$KICAD_IMAGE" kicad-cli version 2>&1 | tr -d '\r')"
 
