@@ -7,6 +7,11 @@
 		(legacy_teardrops no)
 	)
 	(paper "A4")
+	(title_block
+		(title "PCB INLET - Custom Step-Down PSU 230V to 100V")
+		(date "2026-07-18")
+		(rev "PCB-INLET_P2-R4.1")
+	)
 	(layers
 		(0 "F.Cu" signal "top_cu")
 		(2 "B.Cu" signal "bottom_cu")
@@ -70,7 +75,7 @@
 				(type "Bottom Silk Screen")
 				(color "White")
 			)
-			(copper_finish "None")
+			(copper_finish "HAL lead free")
 			(dielectric_constraints yes)
 		)
 		(pad_to_mask_clearance 0)
@@ -400,6 +405,28 @@
 			(effects
 				(font
 					(size 0.5 0.5)
+					(thickness 0.15)
+				)
+			)
+		)
+		(fp_text user "L"
+			(at -8.5 0 0)
+			(layer "F.SilkS")
+			(uuid "afd38c50-0974-49c0-addf-a840ff2629c0")
+			(effects
+				(font
+					(size 0.8 0.8)
+					(thickness 0.15)
+				)
+			)
+		)
+		(fp_text user "N"
+			(at 8.5 0 0)
+			(layer "F.SilkS")
+			(uuid "b440ab8f-b6f6-483a-8227-cf6e0a50e296")
+			(effects
+				(font
+					(size 0.8 0.8)
 					(thickness 0.15)
 				)
 			)
@@ -965,6 +992,28 @@
 			(effects
 				(font
 					(size 0.52 0.52)
+					(thickness 0.15)
+				)
+			)
+		)
+		(fp_text user "L"
+			(at -8.5 0 0)
+			(layer "F.SilkS")
+			(uuid "0cbb865e-082f-401b-9e1e-b0fa7dc43666")
+			(effects
+				(font
+					(size 0.8 0.8)
+					(thickness 0.15)
+				)
+			)
+		)
+		(fp_text user "N"
+			(at 8.5 0 0)
+			(layer "F.SilkS")
+			(uuid "14ee19c2-dd37-40c1-ba0c-9abf730d57fe")
+			(effects
+				(font
+					(size 0.8 0.8)
 					(thickness 0.15)
 				)
 			)
