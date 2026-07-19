@@ -18,7 +18,7 @@ env:
   KICAD_EXPECTED: "10.0."
   PCB: pcb-inlet.kicad_pcb
   PROJECT: pcb-inlet
-  REVISION: PCB1-PCB-01R1
+  REVISION: PCB-INLET_P2-R4.1
 
 jobs:
   manufacture:
